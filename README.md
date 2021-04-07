@@ -8,3 +8,8 @@ git pull  (im richtigen Ordner)
 
 um das Projekt hoch zu laden:
 rechtsklick -> git GUI -> Stage dann commit dann push
+
+
+Falls etwas neues Ausporbiert werden soll einen neuen Branch (neue Version eröffnen):
+ git branch -> keine Ahnung was
+ ...

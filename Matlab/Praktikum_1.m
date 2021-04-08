@@ -2,8 +2,18 @@ clear all;
 clc;
 
 D=0.017;
-R=0.02;
-m=0.27;
+
+Rm=0.02;    %Metall Radius
+Rg=0.01875; %Gummi Radius
+mM=0.27;    %Masse Metall
+mG=0.025;   %Masse Gummi
+
+%Kugel Auswählen
+m=mM;
+%m=mG;
+R=Rg;
+%R=Rm;
+
 r=sqrt(R^2-(D/2)^2);
 Ib=4.32*10^-5;
 Iw=0.14025;

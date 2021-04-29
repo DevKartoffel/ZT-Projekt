@@ -1,12 +1,5 @@
 clear all;
 clc;
-% ??
-ut=0;
-xt=0;
-X0t=0;
-X1t=0;
-A0t=0;
-A1t=0;
 %% Variablen
 D=0.017;
 Rm=0.02;    %Metall Radius
@@ -104,3 +97,102 @@ xlim([0 10]);
 %% 3.2
 figure(3);
 step(ZRM);
+%% 4 Analyse
+clc;
+n = length(A);
+display(['n = ', num2str(n)]);
+
+%% 4.1 Vollständige Steuerbarkeit
+Ss = [bv A*bv A^2*bv A^3*bv];
+%detSs = det(Ss);
+rankSs = rank(Ss);
+display(['Rang(S_s) = ', num2str(rankSs)]);
+% Das Syste ist vollständig steuerbar, da det(Ss) ~= 0
+% Das Syste ist vollständig steuerbar, da Rang(Ss) = n
+
+%% 4.2 Vollständige Beobachtbarkeit
+c0 = [bv A*bv A^2*bv A^3*bv];
+rangc0 = rank(c0);
+ob = [
+    cT;
+    cT*A;
+    cT*A^2;
+    cT*A^3
+    ];
+rankSb = rank(ob);
+display(['Rang(S_b) = ', num2str(rankSb)]);
+% Das Syste ist vollständig beobachtbar, da Rang(Sb) = n
+
+%% 4.3
+eigenA = eig(A);
+maxEigen = max(real(eigenA));
+disp(['max{\lambda _{i}} = ', num2str(maxEigen)]);
+% Das System ist nicht zustandsstabil, da der Realteil des größten Pols in 
+% der rechten Halbebene liegt. Die Eigenwerte sind noch kein Beweis auf
+% E/A-Stabilität.
+
+%% 4.4
+[nenn, zeahl] = ss2tf(A, bv, cT, d);
+G = tf(nenn, zeahl)
+% Erstes Hurwitz-Kriterium ist nicht erfüllt, da nicht alle a_i > 0. Das
+% Sytem hat kein integriendes Verhalten, da S^k = 1 bzw k = 0.
+
+%% 4.5
+poleG = pole(G)
+maxPol = max(real(poleG));
+disp(['max{\lambda _{i}} = ', num2str(maxPol)]);
+% Das System ist nicht E/A-stabil, weil der Realteil des größten Pols in 
+% der rechten Halbebene liegt
+
+%% 5 Normalformen
+clc;
+
+%% 5.1 Kanonische Normalform
+% Spezielles Vorgehen
+KnfSpez = canon(ZRM)
+% In A32 und A23 sind die imaginären Teile der konugiert komplexen Pole zu
+% sehen. Demensprechend handelt es sich hier nicht um eine Diagonalform.
+
+% Normale Vorgehensweise
+[V, eigenA] = eig(A);
+AKnfNormal = inv(V) * A * V
+bvKnfNormal = inv(V) * bv
+cTKnfNormal = cT * V
+% Alle Eigenwerte liegen auf der Diagonele. Die A-Matrix ist in die
+% Diagonalform transformiert.
+
+
+%% 5.2 RNF
+qT=cT * inv([bv A*bv A^2*bv A^3*bv]);
+T=inv([
+    qT;
+    qT * A;
+    qT * A^2;
+    qT * A^3
+    ]);
+bvRnf=inv(T)*bv
+cTRnf=cT*T
+ARnf=inv(T)*A*T
+[nenn, zeahl] = ss2tf(A, bv, cT, d);
+G = tf(nenn, zeahl)
+% Es ist zu sehen, dass der Koeffizient a1 in der Regelungsnormalform auf 0
+% gerundet wurde.
+
+
+%% 5.3 BNF
+% Über Tansformationsmatrix
+r=inv([
+    cT;
+    cT*A;
+    cT*A^2;
+    cT*A^3
+    ])*[0;0;0;1];
+T=[r A*r A^2*r A^3*r];
+bvBnf=inv(T)*bv
+cTBnf=cT*T
+ABnf=inv(T)*A*T
+
+% Über Dualität der Regelungsnormalform
+ABnfDual = ARnf'
+bvBnfDual = cTBnf
+cTBnfDual = bvBnf

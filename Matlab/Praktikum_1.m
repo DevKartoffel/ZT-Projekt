@@ -40,7 +40,7 @@ x40=0;
 x0=[x10 x20 x30 x40];
 
 % Eingangsgröße
-u0= 0;
+u0= 2;
 
 %% A Matrix linearisiertes Modell
 A11=0;
@@ -174,10 +174,9 @@ bvRnf=inv(T)*bv
 cTRnf=cT*T
 ARnf=inv(T)*A*T
 [nenn, zeahl] = ss2tf(A, bv, cT, d);
-G = tf(nenn, zeahl)
+GRNF = tf(nenn, zeahl)
 % Es ist zu sehen, dass der Koeffizient a1 in der Regelungsnormalform auf 0
 % gerundet wurde.
-
 
 %% 5.3 BNF
 % Über Tansformationsmatrix
@@ -196,3 +195,65 @@ ABnf=inv(T)*A*T
 ABnfDual = ARnf'
 bvBnfDual = cTBnf
 cTBnfDual = bvBnf
+
+
+%% ############  Praktikum 3  ############
+
+% Vorbereitung: 
+% Es gibt 4 unterschiedliche Güteanforderungen
+% 1) Stabilitätsanforderung:
+% Regelkreis muss stabil sein => y geht gegen null, wenn kein Signal
+% anliegt
+% 2)Forderung nach Störkompensation und Sollwertfolge:
+% Regeldifferenz soll gleich null sein, sprich y ist w im eingeschwungenen
+% Zustand
+% 3)Dynamikanforderungen:
+% Die dynamik soll eine gewünschte Form annehmen
+% => Anstiegszeit T_r, Überschwingzeit T_m, Einschwungzeit T_e,
+% Überschwingweite deltah, Toleranzband müssen erfüllt bzw. eingehalten werden
+% 4)Robustheitsanforderungen:
+% Unempfindlichkeit des Regelkreises gegenüber Änderungen der Strecke
+
+% Lage der Pole:
+% Je weiter sich der Realteil eines Pols in der linken Halbene befindet,
+% desto geringer ist der Einfluss auf die Dynamik des Systems. Somit kann
+% man die Dynamik des Systems über die Eigenwerte verändern. Pole in der
+% der linken Halbene, deren Realteil nahe am Nullpunkt liegen werden
+% dominierende Pole genannt.
+
+
+%% dominierende Pol berechnen eines PT2-Gliedes
+% Anfoderungen
+deltah = 0.1;
+t5Proz = 1;
+
+% Berechnung Pole der diminierenden Dynamik
+temp = log(deltah)^2/(log(deltah)^2+pi^2);
+d = sqrt(temp);
+omega0 = d * t5Proz / 3;
+% Übertragungsfunktion der PT2-Gliedes
+gwsoll = tf(omega0^2, [1 2*d*omega0 omega0^2])
+
+% Wunscheigenwerte
+eigenWunsch = eig(gwsoll);
+eigenWunsch(3,1) = -3;
+eigenWunsch(4,1) = -4;
+
+
+%% k^t über RNF
+% Kaptiel mit RNF muss vorher durchgeführt werden
+lambdaDach = zeros(size(eigenWunsch,1),size(eigenWunsch,1));
+
+for n=1:size(eigenWunsch,1)
+    lambdaDach(n,n) = eigenWunsch(n);
+end
+
+carPoly = charpoly(lambdaDach);
+aDach = carPoly(1,2:end)
+
+a = ARnf(size(ARnf,2),:)
+kTRnf = aDach - a;
+kT = kTRnf * inv(T)
+
+%% k^t über acker
+kT = acker(ZRM.A, ZRM.B, [eigenWunsch]) % GGF auch aDach??

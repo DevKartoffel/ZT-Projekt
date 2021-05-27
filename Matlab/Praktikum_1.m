@@ -33,33 +33,35 @@ b5 = a2;
 b6 = a3;
 
 %% Variablen der Ruhelage
-x10=0;
-x20=0;
-x30=0;
-x40=0;
-x0=[x10 x20 x30 x40];
+x10 = 0;
+x20 = 0;
+x30 = 0;
+x40 = 0;
+x0 = [x10 x20 x30 x40];
 
-% Eingangsgröße
-u0= 2;
+% Eingangsgrößen
+u0 = 0.2;
+z0 = 0.05;
+wsoll = 0.2;
 
 %% A Matrix linearisiertes Modell
-A11=0;
-A12=1;
-A13=0;
-A14=0;
+A11 = 0;
+A12 = 1;
+A13 = 0;
+A14 = 0;
 
-A21= (-a2*b6* (a1* (m*((x10^2))+b1) -b5*a2) + 2*a1*a2*m*x10* (b6*x10+u0*l ))...
+A21 = (-a2*b6* (a1* (m*((x10^2))+b1) -b5*a2) + 2*a1*a2*m*x10* (b6*x10+u0*l ))...
     / ((a1*(m*((x10^2))+b1) -b5*a2)^2);
-A22= 0;
-A23= (a3*(m*((x10^2))+b1)+a2*b4) / (a1*(m*(x10^2)+b1) -b5*a2);
-A24= (a2*b3) / (a1*(m*(x10^2)+b1) -b5*a2);
+A22 = 0;
+A23 = (a3*(m*((x10^2))+b1)+a2*b4) / (a1*(m*(x10^2)+b1) -b5*a2);
+A24 = (a2*b3) / (a1*(m*(x10^2)+b1) -b5*a2);
 
-A31=0;
-A32=0;
-A33=0;
-A34=1;
+A31 = 0;
+A32 = 0;
+A33 = 0;
+A34 = 1;
 
-A41= b6* (-m* (x10^2) +b1)/(m* (x10^2) +b1)^2 ...
+A41 = b6* (-m* (x10^2) +b1)/(m* (x10^2) +b1)^2 ...
     - (1+a2*b5* ( 2*a1*m* (x10^2) +2*a1*b1-a2*b5) / ( a1* (m* (x10^2) +b1) -a2*b5)^2 )...
     *2*m*l*x10*u0 / (m*(x10^2)+b1)^2 - a2*b5*b6*( m*(x10^2)*(3*a1*m*(x10^2) + 2*a1*b1 - a2*b5) + b1*(-a1*b1+a2*b5) )/((m*(x10^2)+b1) * (a1*(m*(x10^2)+b1) - a2*b5))^2;
 A42=0;
@@ -163,16 +165,16 @@ cTKnfNormal = cT * V
 
 
 %% 5.2 RNF
-qT=cT * inv([bv A*bv A^2*bv A^3*bv]);
-T=inv([
-    qT;
-    qT * A;
-    qT * A^2;
-    qT * A^3
-    ]);
-bvRnf=inv(T)*bv
-cTRnf=cT*T
-ARnf=inv(T)*A*T
+qT = [0 0 0 1] * inv([bv A*bv A^2*bv A^3*bv]);
+TRnf = inv([
+        qT;
+        qT * A;
+        qT * A^2;
+        qT * A^3
+        ]);
+bvRnf=inv(TRnf)*bv
+cTRnf=cT*TRnf
+ARnf=inv(TRnf)*A*TRnf
 [nenn, zeahl] = ss2tf(A, bv, cT, d);
 GRNF = tf(nenn, zeahl)
 % Es ist zu sehen, dass der Koeffizient a1 in der Regelungsnormalform auf 0
@@ -180,16 +182,16 @@ GRNF = tf(nenn, zeahl)
 
 %% 5.3 BNF
 % Über Tansformationsmatrix
-r=inv([
+r = inv([
     cT;
     cT*A;
     cT*A^2;
     cT*A^3
     ])*[0;0;0;1];
-T=[r A*r A^2*r A^3*r];
-bvBnf=inv(T)*bv
-cTBnf=cT*T
-ABnf=inv(T)*A*T
+TBnf = [r A*r A^2*r A^3*r];
+bvBnf = inv(TBnf)*bv
+cTBnf = cT*TBnf
+ABnf = inv(TBnf)*A*TBnf
 
 % Über Dualität der Regelungsnormalform
 ABnfDual = ARnf'
@@ -221,6 +223,7 @@ cTBnfDual = bvBnf
 % der linken Halbene, deren Realteil nahe am Nullpunkt liegen werden
 % dominierende Pole genannt.
 
+%% ## 3. Entwurf Zustandrückführung
 
 %% dominierende Pol berechnen eines PT2-Gliedes
 % Anfoderungen
@@ -230,29 +233,84 @@ t5Proz = 1;
 % Berechnung Pole der diminierenden Dynamik
 temp = log(deltah)^2/(log(deltah)^2+pi^2);
 d = sqrt(temp);
-omega0 = d * t5Proz / 3;
+omega0 = 3 / (d * t5Proz);
 % Übertragungsfunktion der PT2-Gliedes
-gwsoll = tf(omega0^2, [1 2*d*omega0 omega0^2])
+gwsoll = tf(omega0^2, [1 2*d*omega0 omega0^2]);
 
 % Wunscheigenwerte
 eigenWunsch = eig(gwsoll);
-eigenWunsch(3,1) = -1.5437;
-eigenWunsch(4,1) = -1.5438;
+eigenWunsch(3,1) = -20;
+eigenWunsch(4,1) = -20;
 
 
 %% k^t über RNF
-lambdaDach = zeros(size(eigenWunsch,1),size(eigenWunsch,1));
+% Kaptiel mit RNF muss vorher durchgeführt werden
 
+
+% Eigenwerte auf die Diagonale einer Matrix bringen
+lambdaDach = zeros(size(eigenWunsch,1),size(eigenWunsch,1));
 for n=1:size(eigenWunsch,1)
     lambdaDach(n,n) = eigenWunsch(n);
 end
-
+% Die Koeffizienten des charakteristisches Polyom berechnen
 carPoly = charpoly(lambdaDach);
-aDach = carPoly(1,2:end)
+% Die wunschkoeffizienten in einen transformierten Vektor schreiben und von
+% a0 bis an-1 laufen lassen
+aDach = flip(carPoly(1,2:end));
 
-a = ARnf(size(ARnf,2),:)
+% Letze Zeile der RNF Matrix herausfilter und somit die Koeffizienten des
+% charakteristischen Polynoms der Systemmatrix erhalten
+a = - ARnf(size(ARnf,2),:);
+
+% kTrnf berechnen
 kTRnf = aDach - a;
-kT = kTRnf * inv(T)
+kT = kTRnf * inv(TRnf);
 
 %% k^t über acker
-kT = acker(ZRM.A, ZRM.B, [eigenWunsch]) % GGF auch aDach??
+kTacker = acker(ZRM.A, ZRM.B, [eigenWunsch]);
+
+%% ## 4. Dynamikanforderungen Testen
+
+[peakOhneFilter, IOhneFilter] = max(out.SimuYtRNFFilter.Data);
+[peakMitFilter, IMitFilter] = max(out.SimuYtRNFFilterULimit.Data);
+
+figure()
+hold on;
+title(['x_0 = ', num2str(x0(1))])
+plot(out.SimuYtRNFFilter.Time, out.SimuYtRNFFilter.Data)
+plot( out.SimuYtRNFFilterULimit.Time, out.SimuYtRNFFilterULimit.Data);
+plot(out.SimuYtRNFFilter.Time(IOhneFilter), peakOhneFilter, 'x');
+plot(out.SimuYtRNFFilterULimit.Time(IMitFilter), peakMitFilter, 'x');
+legend('Ohne Limit','Mit Limit');
+grid minor;
+hold off;
+
+%% ## 5 Entwurf eines Vorfilters
+
+V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
+VRnf = aDach(1,1) / cTRnf(1,1);
+
+%% Aufgabe 6
+
+% Anfangsauslenkungen
+% x0 = 0.05: deltah (mit Beschränkung) wird kleiner im Vgl. mit dem deltah
+% ohne Anfangsauslenkung. Bleibt jedoch größer als das deltah bei 0.05
+% ohne Limit. (TeO= 0.8953, TeM=0.953; ymaxO=0.2147, ymaxM=0.2223)
+% x0 = 0.5: die Einschwingzeit wird weiterhin nicht erfüllt (TeO=0.839,
+% TeM=0.88)
+% Aber das deltah bleibt unterhalb des vorgegeben Wertes von 0.1 und erfüllt somit
+% ebenso die Güteanforderung (yminO =0.1794, yminM = 0.1702 ).
+% x0 = -0.5: Mit einer Limitierung kann der Regler das Ziel nicht mehr
+% erreichen
+
+%% ## 7 Störgröße
+
+figure()
+hold on;
+title(['Störfunktion bei x_0 = ', num2str(x0(1))])
+plot(out.SimuYtRNFStoerung.Time, out.SimuYtRNFStoerung.Data)
+grid minor;
+hold off;
+
+% Die Störung kann nicht geregelt werden, da sie hinter dem Regler
+% angreift. Es bleibt eine Regelabweichung um die Höhe der Strörung übrig.

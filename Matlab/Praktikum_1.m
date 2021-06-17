@@ -1,5 +1,6 @@
 clear all;
 clc;
+%% ############  Praktikum 1  ############
 %% Variablen
 D=0.017;
 Rm=0.02;    %Metall Radius
@@ -314,3 +315,86 @@ hold off;
 
 % Die Störung kann nicht geregelt werden, da sie hinter dem Regler
 % angreift. Es bleibt eine Regelabweichung um die Höhe der Strörung übrig.
+
+
+%% ############  Praktikum 4  ############
+% Vorbereitung
+%
+% 8.2 Regelentwurf durch Polvorgabe
+% Vorraussetzung: vollständig steuerbare Regelstrecke
+% Bei einer Ausgangsrückführung kann die Systemmatrix durch Ky verändert
+% werden. Dabei können die Eigenwerte so beeinflusst werden, dass die
+% Führungsübertragungsfunktion eine gewünschte dynamik erreicht und
+% bestimmten Güteanforderungen erfüllt sind. Dabei ist es wichtig die Lage
+% des dominierenden Pols zu bestimmen. Dies wurde schon im letzen Praktikum
+% brechnet.
+%
+% 8.3 Sicherung der stattionären Genaugkeit
+% Bei der ArF und ZRF sind meistens Vorfilter nötig, um eine station.
+% Genaugkeit zu erlangen.
+% ZRF: V = -(cT * (A-b*K^T)^-1 * b)^-1
+% ARF: V = -(cT * (A-b*Ky*cT)^-1 * b)^-1
+%
+% 8.4 Störgrößenkompensation, Parameterrobustheit
+% Um eine größere Robustheit zu erhalten und auch um Störgrößen komensieren
+% zu können, wird der Regelkreis zuruückgeführt. Die Rückführung geschieht
+% vor dem Vorfilter (e(t) = w(t) - y(t)). Dieser Regler wird dann PZ-Regler
+% genannt. Weist die Regelstrecke kein integrierendes Verhalten auf, wird
+% bei einem PZ-Regler jedoch eine bleibende Regelabweichung bei Störungen
+% auftreten.
+% Wird der Vorfilter durch einen PI-Regler ersetzt, so handelt es
+% sich um einen PIZ-Regler. Der PIZ-Regler wird dann benötigt, wenn der
+% Regelkreis kein integrierendes Verhalten aufweist. Dann werden auch
+% Störungen ohne bleibende Regelabweichung geregelt.
+
+%% ## 3 Güteanforderung
+% 1) PIZ-Regler: Weil die Regelstrecke kein integrales Verhalten aufweißt
+% und eine stationäre Genauigkeit erreicht werden soll. 
+% 2)
+
+% Anfoderungen
+deltah = 0.1;
+t5Proz = 1.5; % epsilon = 0.05;
+
+
+% Berechnung Pole der diminierenden Dynamik
+temp = log(deltah)^2/(log(deltah)^2+pi^2);
+p4d = sqrt(temp);
+p4omega0 = 3 / (p4d * t5Proz);
+
+% Übertragungsfunktion der PT2-Gliedes
+P4gwsoll = tf(p4omega0^2, [1 2*p4d*p4omega0 p4omega0^2]);
+
+% Wunscheigenwerte
+P4eigenWunsch = eig(P4gwsoll);
+realteil = max(real(P4eigenWunsch));
+P4eigenWunsch(3,1) = realteil * 5; % 5 Weil PIZ
+P4eigenWunsch(4,1) = realteil * 5.2;
+%P4eigenWunsch(5,1) = realteil * 5.1;
+
+%P4kT = acker(ZRM.A, ZRM.B, [P4eigenWunsch]);
+[P4kT, P4kTRnf, P4aRnf, P4aDachRnf, P4ARnf, P4bRnf, P4cTRnf , P4TRnf] ...
+    = ackerSelfmade(ZRM.A, ZRM.B, ZRM.C,ZRM.D, P4eigenWunsch);
+%P4V = 0;%-(ZRM.C*(ZRM.A - ZRM.B * P4kT)^-1 * ZRM.B)^-1;
+P4V = P4aRnf(1) / P4cTRnf(2);
+%P4V = -P4kTRnf(2)/P4cTRnf(2); %Unschön
+
+%% ## 4 Simulation des geschlossenes Regelkreises
+
+%% 4.1 Positionierung
+
+%Kpi = V + Vi/s = sV+Vi/s
+P4VI =  1e5;
+%P4VI = 0;%Unschön
+Kpi = tf([P4V,P4VI],[1 0]);
+% zeahler = cTRnf * ones(size(cTRnf,2));
+% temp = a+P4kT;
+% sVektor = ones(size(temp,2));
+% nenner = [1 temp*sVektor];
+% gsZRF = tf(zeahler, nenner);
+%
+cschT = [P4VI*P4cTRnf 0] + [0 P4V*P4cTRnf];
+aschWunsch = [P4VI*P4cTRnf 0] + [0 P4aRnf+P4kTRnf+P4V*P4cTRnf];
+P4Gw = tf(cschT * ones(size(cschT,1)), [1 aschWunsch*ones(size(aschWunsch,1))]);
+
+step(P4Gw);

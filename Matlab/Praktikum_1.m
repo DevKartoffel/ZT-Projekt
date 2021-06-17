@@ -14,26 +14,7 @@ R=Rm;
 %m=mG;
 %R=Rg;
 
-r=sqrt(R^2-(D/2)^2);
-Ib=4.32*10^-5;
-Iw=0.14025;
-l=0.49;
-b=1;
-K=0.001;
-g=9.81;
-
-a1 = (m + (Ib/r^2));
-a2 = (m*r^2+Ib)*1/r;
-a3 = m * g;
-
-b1 = Ib + Iw;
-b2 = 2 * m;
-b3 = b * l^2;
-b4 = K * l^2;
-b5 = a2;
-b6 = a3;
-
-%% Variablen der Ruhelage
+% Variablen der Ruhelage
 x10 = 0;
 x20 = 0;
 x30 = 0;
@@ -42,54 +23,12 @@ x0 = [x10 x20 x30 x40];
 
 % Eingangsgrößen
 u0 = 0.2;
-z0 = 0.05;
-wsoll = 0.2;
+z0 = 0;
+wsoll = 1;
 
-%% A Matrix linearisiertes Modell
-A11 = 0;
-A12 = 1;
-A13 = 0;
-A14 = 0;
-
-A21 = (-a2*b6* (a1* (m*((x10^2))+b1) -b5*a2) + 2*a1*a2*m*x10* (b6*x10+u0*l ))...
-    / ((a1*(m*((x10^2))+b1) -b5*a2)^2);
-A22 = 0;
-A23 = (a3*(m*((x10^2))+b1)+a2*b4) / (a1*(m*(x10^2)+b1) -b5*a2);
-A24 = (a2*b3) / (a1*(m*(x10^2)+b1) -b5*a2);
-
-A31 = 0;
-A32 = 0;
-A33 = 0;
-A34 = 1;
-
-A41 = b6* (-m* (x10^2) +b1)/(m* (x10^2) +b1)^2 ...
-    - (1+a2*b5* ( 2*a1*m* (x10^2) +2*a1*b1-a2*b5) / ( a1* (m* (x10^2) +b1) -a2*b5)^2 )...
-    *2*m*l*x10*u0 / (m*(x10^2)+b1)^2 - a2*b5*b6*( m*(x10^2)*(3*a1*m*(x10^2) + 2*a1*b1 - a2*b5) + b1*(-a1*b1+a2*b5) )/((m*(x10^2)+b1) * (a1*(m*(x10^2)+b1) - a2*b5))^2;
-A42=0;
-A43= (-b4) / (m*(x10^2)+b1) - (b5*a2*b4) / ((m*(x10^2)+b1) * (a1* (m*(x10^2)+b1) -b5*a2)) - (b5*a3) / (a1* (m*(x10^2)+b1) -b5*a2);
-A44= (-b3) / (m*(x10^2)+b1) - (b5*a2*b3) / ((m*(x10^2)+b1) * (a1* (m*(x10^2)+b1) -b5*a2));
-
-%b-Vektor linearisiertes Modell
-B1=0;
-B2=(-a2*l*cos(x30))/(a1*(m*((x10^2))+b1)-b5*a2);
-B3=0;
-B4=(1+(b5*a2)/(a1*(m*((x10^2))+b1)-b5*a2)) * (l*cos(x30))/(m*((x10^2))+b1);
-
-
-% Zustandsraum Elemente A,b,cT,d
-A=[ A11 A12 A13 A14;
-    A21 A22 A23 A24;
-    A31 A32 A33 A34;
-    A41 A42 A43 A44];
-bv=[B1;
-    B2;
-    B3;
-    B4];
-cT=[1 0 0 0];
-d=0;
-
-%% Zustandraummodel erstellen
-ZRM = ss(A,bv,cT,d);
+ZRMMetall = calcZRM(mM,Rm, x0, u0);
+% Zustandraummodel erstellen
+ZRM = ZRMMetall;
 
 %% 3.1
 x0 = [5 0 0 0];
@@ -102,11 +41,11 @@ figure(3);
 step(ZRM);
 %% 4 Analyse
 clc;
-n = length(A);
+n = length(ZRM.A);
 display(['n = ', num2str(n)]);
 
 %% 4.1 Vollständige Steuerbarkeit
-Ss = [bv A*bv A^2*bv A^3*bv];
+Ss = [ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B];
 %detSs = det(Ss);
 rankSs = rank(Ss);
 display(['Rang(S_s) = ', num2str(rankSs)]);
@@ -114,20 +53,20 @@ display(['Rang(S_s) = ', num2str(rankSs)]);
 % Das Syste ist vollständig steuerbar, da Rang(Ss) = n
 
 %% 4.2 Vollständige Beobachtbarkeit
-c0 = [bv A*bv A^2*bv A^3*bv];
+c0 = [ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B];
 rangc0 = rank(c0);
 ob = [
-    cT;
-    cT*A;
-    cT*A^2;
-    cT*A^3
+    ZRM.C;
+    ZRM.C*ZRM.A;
+    ZRM.C*ZRM.A^2;
+    ZRM.C*ZRM.A^3
     ];
 rankSb = rank(ob);
 display(['Rang(S_b) = ', num2str(rankSb)]);
 % Das Syste ist vollständig beobachtbar, da Rang(Sb) = n
 
 %% 4.3
-eigenA = eig(A);
+eigenA = eig(ZRM.A);
 maxEigen = max(real(eigenA));
 disp(['max{\lambda _{i}} = ', num2str(maxEigen)]);
 % Das System ist nicht zustandsstabil, da der Realteil des größten Pols in 
@@ -135,7 +74,7 @@ disp(['max{\lambda _{i}} = ', num2str(maxEigen)]);
 % E/A-Stabilität.
 
 %% 4.4
-[nenn, zeahl] = ss2tf(A, bv, cT, d);
+[nenn, zeahl] = ss2tf(ZRM.A, ZRM.B, ZRM.C, ZRM.D);
 G = tf(nenn, zeahl)
 % Erstes Hurwitz-Kriterium ist nicht erfüllt, da nicht alle a_i > 0. Das
 % Sytem hat kein integriendes Verhalten, da S^k = 1 bzw k = 0.
@@ -157,26 +96,26 @@ KnfSpez = canon(ZRM)
 % sehen. Demensprechend handelt es sich hier nicht um eine Diagonalform.
 
 % Normale Vorgehensweise
-[V, eigenA] = eig(A);
-AKnfNormal = inv(V) * A * V
-bvKnfNormal = inv(V) * bv
-cTKnfNormal = cT * V
+[Veig, eigenA] = eig(ZRM.A);
+AKnfNormal = inv(Veig) * ZRM.A * Veig
+bvKnfNormal = inv(Veig) * ZRM.B
+cTKnfNormal = ZRM.C * Veig
 % Alle Eigenwerte liegen auf der Diagonele. Die A-Matrix ist in die
 % Diagonalform transformiert.
 
 
 %% 5.2 RNF
-qT = [0 0 0 1] * inv([bv A*bv A^2*bv A^3*bv]);
+qT = [0 0 0 1] * inv([ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B]);
 TRnf = inv([
         qT;
-        qT * A;
-        qT * A^2;
-        qT * A^3
+        qT * ZRM.A;
+        qT * ZRM.A^2;
+        qT * ZRM.A^3
         ]);
-bvRnf=inv(TRnf)*bv
-cTRnf=cT*TRnf
-ARnf=inv(TRnf)*A*TRnf
-[nenn, zeahl] = ss2tf(A, bv, cT, d);
+bvRnf=inv(TRnf)*ZRM.B
+cTRnf=ZRM.C*TRnf
+ARnf=inv(TRnf)*ZRM.A*TRnf
+[nenn, zeahl] = ss2tf(ZRM.A, ZRM.B, ZRM.C, ZRM.D);
 GRNF = tf(nenn, zeahl)
 % Es ist zu sehen, dass der Koeffizient a1 in der Regelungsnormalform auf 0
 % gerundet wurde.
@@ -184,15 +123,15 @@ GRNF = tf(nenn, zeahl)
 %% 5.3 BNF
 % Über Tansformationsmatrix
 r = inv([
-    cT;
-    cT*A;
-    cT*A^2;
-    cT*A^3
+    ZRM.C;
+    ZRM.C*ZRM.A;
+    ZRM.C*ZRM.A^2;
+    ZRM.C*ZRM.A^3
     ])*[0;0;0;1];
-TBnf = [r A*r A^2*r A^3*r];
-bvBnf = inv(TBnf)*bv
-cTBnf = cT*TBnf
-ABnf = inv(TBnf)*A*TBnf
+TBnf = [r ZRM.A*r ZRM.A^2*r ZRM.A^3*r];
+bvBnf = inv(TBnf)*ZRM.B
+cTBnf = ZRM.C*TBnf
+ABnf = inv(TBnf)*ZRM.A*TBnf
 
 % Über Dualität der Regelungsnormalform
 ABnfDual = ARnf'
@@ -233,10 +172,10 @@ t5Proz = 1;
 
 % Berechnung Pole der diminierenden Dynamik
 temp = log(deltah)^2/(log(deltah)^2+pi^2);
-d = sqrt(temp);
-omega0 = 3 / (d * t5Proz);
+ZRM.D = sqrt(temp);
+omega0 = 3 / (ZRM.D * t5Proz);
 % Übertragungsfunktion der PT2-Gliedes
-gwsoll = tf(omega0^2, [1 2*d*omega0 omega0^2]);
+gwsoll = tf(omega0^2, [1 2*ZRM.D*omega0 omega0^2]);
 
 % Wunscheigenwerte
 eigenWunsch = eig(gwsoll);
@@ -247,17 +186,11 @@ eigenWunsch(4,1) = -20;
 %% k^t über RNF
 % Kaptiel mit RNF muss vorher durchgeführt werden
 
-
-% Eigenwerte auf die Diagonale einer Matrix bringen
-lambdaDach = zeros(size(eigenWunsch,1),size(eigenWunsch,1));
-for n=1:size(eigenWunsch,1)
-    lambdaDach(n,n) = eigenWunsch(n);
-end
 % Die Koeffizienten des charakteristisches Polyom berechnen
-carPoly = charpoly(lambdaDach);
+WunschPoly = poly(eigenWunsch);
 % Die wunschkoeffizienten in einen transformierten Vektor schreiben und von
 % a0 bis an-1 laufen lassen
-aDach = flip(carPoly(1,2:end));
+aDach = flip(WunschPoly(1,2:end));
 
 % Letze Zeile der RNF Matrix herausfilter und somit die Koeffizienten des
 % charakteristischen Polynoms der Systemmatrix erhalten
@@ -270,7 +203,14 @@ kT = kTRnf * inv(TRnf);
 %% k^t über acker
 kTacker = acker(ZRM.A, ZRM.B, [eigenWunsch]);
 
+%% ## 5 Entwurf eines Vorfilters
+
+V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
+VRnf = aDach(1,1) / cTRnf(1,1);
+
 %% ## 4. Dynamikanforderungen Testen
+
+ out = sim('Simulink_ZT', 10);
 
 [peakOhneFilter, IOhneFilter] = max(out.SimuYtRNFFilter.Data);
 [peakMitFilter, IMitFilter] = max(out.SimuYtRNFFilterULimit.Data);
@@ -286,10 +226,7 @@ legend('Ohne Limit','Mit Limit');
 grid minor;
 hold off;
 
-%% ## 5 Entwurf eines Vorfilters
 
-V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
-VRnf = aDach(1,1) / cTRnf(1,1);
 
 %% Aufgabe 6
 
@@ -369,32 +306,50 @@ P4gwsoll = tf(p4omega0^2, [1 2*p4d*p4omega0 p4omega0^2]);
 P4eigenWunsch = eig(P4gwsoll);
 realteil = max(real(P4eigenWunsch));
 P4eigenWunsch(3,1) = realteil * 5; % 5 Weil PIZ
-P4eigenWunsch(4,1) = realteil * 5.2;
-%P4eigenWunsch(5,1) = realteil * 5.1;
+P4eigenWunsch(4,1) = realteil * 5.1;
+% +1 Pol für PI-Regler
+P4eigenWunsch(5,1) = realteil * 5.2;
 
-%P4kT = acker(ZRM.A, ZRM.B, [P4eigenWunsch]);
-[P4kT, P4kTRnf, P4aRnf, P4aDachRnf, P4ARnf, P4bRnf, P4cTRnf , P4TRnf] ...
-    = ackerSelfmade(ZRM.A, ZRM.B, ZRM.C,ZRM.D, P4eigenWunsch);
-%P4V = 0;%-(ZRM.C*(ZRM.A - ZRM.B * P4kT)^-1 * ZRM.B)^-1;
-P4V = P4aRnf(1) / P4cTRnf(2);
-%P4V = -P4kTRnf(2)/P4cTRnf(2); %Unschön
+% Die Koeffizienten des charakteristisches Polyom berechnen
+P4Poly = poly(P4eigenWunsch);
+P4aDach = flip(P4Poly(1,2:end));
+
+
 
 %% ## 4 Simulation des geschlossenes Regelkreises
 
-%% 4.1 Positionierung
+%% 4.1 und 4.2 Positionierung
 
-%Kpi = V + Vi/s = sV+Vi/s
-P4VI =  1e5;
-%P4VI = 0;%Unschön
-Kpi = tf([P4V,P4VI],[1 0]);
-% zeahler = cTRnf * ones(size(cTRnf,2));
-% temp = a+P4kT;
-% sVektor = ones(size(temp,2));
-% nenner = [1 temp*sVektor];
-% gsZRF = tf(zeahler, nenner);
-%
-cschT = [P4VI*P4cTRnf 0] + [0 P4V*P4cTRnf];
-aschWunsch = [P4VI*P4cTRnf 0] + [0 P4aRnf+P4kTRnf+P4V*P4cTRnf];
-P4Gw = tf(cschT * ones(size(cschT,1)), [1 aschWunsch*ones(size(aschWunsch,1))]);
+ZRM = ZRMMetall;
+% Bestimmung der RNF Parameter
+[~, P4ARnf, P4bRnf, P4cTRnf, P4TRnf] = calcRnf4Ordnung(ZRM.A, ZRM.B, ZRM.C,ZRM.D);
+P4aRnf = - P4ARnf(size(P4ARnf,2),:);
 
-step(P4Gw);
+
+% 4.1
+P4VKeinSprung = 0;
+% 4.2
+P4VSprung = P4aRnf(1) / P4cTRnf(1);
+
+% Zuordnung des Vorfilters
+%P4V = P4VSprung;
+P4V = P4VKeinSprung;
+
+% Berechnung der unbekannten Parameter V und kT
+P4Temp = [[0; 1; 0; 0; 0] [0; 0; 1; 0; 0] [0; 0; 0; 1; 0] [0; 0; 0; 0; 1] ];
+P4Vk = inv([[P4cTRnf'; 0] P4Temp ])...
+    * (P4aDach' - [ 0; (P4aRnf' + P4V*P4cTRnf')]);
+
+% Zordnung V und kTRnf
+P4VI = P4Vk(1);
+P4kTschRnf = P4Vk(2:end)';
+
+% Berechnung kT
+P4kTsch = P4kTschRnf * P4TRnf;
+
+
+%% 5.3 Gummiball
+
+% Kalkuliere neue Strecke mit dem Gummiball
+ZRMGummi = calcZRM(mG,Rg);
+ZRM = ZRMGummi;

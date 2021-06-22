@@ -22,21 +22,24 @@ x40 = 0;
 x0 = [x10 x20 x30 x40];
 
 % Eingangsgrößen
-u0 = 0.2;
+zeitverzoegerung = 1;
+u0 = 0;
 z0 = 0;
-wsoll = 1;
+wsoll = 0.2;
 
 ZRMMetall = calcZRM(mM,Rm, x0, u0);
 % Zustandraummodel erstellen
 ZRM = ZRMMetall;
 
 %% 3.1
-x0 = [5 0 0 0];
+% Plotten der Eigenbewegung
+x0 = [0 0 0 0];
 figure(2);
 initial(ZRM, x0);
 xlim([0 10]);
 
 %% 3.2
+% Plotten der Sprungantwort
 figure(3);
 step(ZRM);
 %% 4 Analyse
@@ -183,8 +186,10 @@ eigenWunsch(3,1) = -20;
 eigenWunsch(4,1) = -20;
 
 
-%% k^t über RNF
-% Kaptiel mit RNF muss vorher durchgeführt werden
+%% k^t über RNF brechnen
+
+% Brechung der RNF
+[~, ARnf, Brnf, cTRnf, TRnf] = calcRnf4Ordnung(ZRM.A,ZRM.B,ZRM.C,ZRM.D);
 
 % Die Koeffizienten des charakteristisches Polyom berechnen
 WunschPoly = poly(eigenWunsch);
@@ -210,22 +215,23 @@ VRnf = aDach(1,1) / cTRnf(1,1);
 
 %% ## 4. Dynamikanforderungen Testen
 
- out = sim('Simulink_ZT', 10);
+% Durchführen Simulink
+outP3 = sim('Simulink_ZT_P3', 10);
 
-[peakOhneFilter, IOhneFilter] = max(out.SimuYtRNFFilter.Data);
-[peakMitFilter, IMitFilter] = max(out.SimuYtRNFFilterULimit.Data);
+ %% Plots
+[peakOhneFilter, IOhneFilter] = max(outP3.SimuYtRNFFilter.Data);
+[peakMitFilter, IMitFilter] = max(outP3.SimuYtRNFFilterULimit.Data);
 
 figure()
 hold on;
-title(['x_0 = ', num2str(x0(1))])
-plot(out.SimuYtRNFFilter.Time, out.SimuYtRNFFilter.Data)
-plot( out.SimuYtRNFFilterULimit.Time, out.SimuYtRNFFilterULimit.Data);
-plot(out.SimuYtRNFFilter.Time(IOhneFilter), peakOhneFilter, 'x');
-plot(out.SimuYtRNFFilterULimit.Time(IMitFilter), peakMitFilter, 'x');
+title(['y(t) bei x_0 = ', num2str(x0(1)), ' und w_{soll}(t) = ', num2str(wsoll)])
+plot(outP3.SimuYtRNFFilter.Time, outP3.SimuYtRNFFilter.Data)
+plot(outP3.SimuYtRNFFilterULimit.Time, outP3.SimuYtRNFFilterULimit.Data);
+plot(outP3.SimuYtRNFFilter.Time(IOhneFilter), peakOhneFilter, 'x');
+plot(outP3.SimuYtRNFFilterULimit.Time(IMitFilter), peakMitFilter, 'x');
 legend('Ohne Limit','Mit Limit');
 grid minor;
 hold off;
-
 
 
 %% Aufgabe 6
@@ -255,7 +261,7 @@ hold off;
 
 
 %% ############  Praktikum 4  ############
-% Vorbereitung
+%% Vorbereitung
 %
 % 8.2 Regelentwurf durch Polvorgabe
 % Vorraussetzung: vollständig steuerbare Regelstrecke
@@ -305,10 +311,10 @@ P4gwsoll = tf(p4omega0^2, [1 2*p4d*p4omega0 p4omega0^2]);
 % Wunscheigenwerte
 P4eigenWunsch = eig(P4gwsoll);
 realteil = max(real(P4eigenWunsch));
-P4eigenWunsch(3,1) = realteil * 5; % 5 Weil PIZ
-P4eigenWunsch(4,1) = realteil * 5.1;
+P4eigenWunsch(3,1) = realteil * 10; % 5 Weil PIZ
+P4eigenWunsch(4,1) = realteil * 10;
 % +1 Pol für PI-Regler
-P4eigenWunsch(5,1) = realteil * 5.2;
+P4eigenWunsch(5,1) = realteil * 10;
 
 % Die Koeffizienten des charakteristisches Polyom berechnen
 P4Poly = poly(P4eigenWunsch);
@@ -345,11 +351,43 @@ P4VI = P4Vk(1);
 P4kTschRnf = P4Vk(2:end)';
 
 % Berechnung kT
-P4kTsch = P4kTschRnf * P4TRnf;
+P4kTsch = P4kTschRnf * inv(P4TRnf);
+
+% Starte Simulink
+time = 15;
+outP4 = sim('Simulink_ZT_P4', time);
 
 
 %% 5.3 Gummiball
 
 % Kalkuliere neue Strecke mit dem Gummiball
-ZRMGummi = calcZRM(mG,Rg);
+ZRMGummi = calcZRM(mG,Rg, x0, u0);
 ZRM = ZRMGummi;
+
+time = 15;
+outP4Gummi = sim('Simulink_ZT_P4', time);
+
+%% Analyse der Plots
+
+figure(40);
+plot( outP4.yt.Time, outP4.yt.Data);
+title('PIZ-Regler bei einer Metallkugel');
+line([0, time], [wsoll*1.1,wsoll*1.1], 'color', 'r');
+line([zeitverzoegerung + t5Proz,zeitverzoegerung + t5Proz],...
+    [0,wsoll*1.05], 'color', 'gr');
+line([0, time], [wsoll*1.05,wsoll*1.05], 'color', 'c');
+line([0, time], [wsoll*0.95,wsoll*0.95], 'color', 'c');
+legend('y(t)','\Delta h_{max}','T_{5%}', '\epsilon')
+grid minor;
+
+figure(41);
+plot( outP4Gummi.yt.Time, outP4Gummi.yt.Data);
+title('PIZ-Regler bei einer Gummikugel');
+line([0, time], [wsoll*1.1,wsoll*1.1], 'color', 'r');
+line([zeitverzoegerung + t5Proz,zeitverzoegerung + t5Proz],...
+    [0,wsoll*1.05], 'color', 'gr');
+line([0, time], [wsoll*1.05,wsoll*1.05], 'color', 'c');
+line([0, time], [wsoll*0.95,wsoll*0.95], 'color', 'c');
+legend('y(t)','\Delta h_{max}','T_{5%}', '\epsilon')
+grid minor;
+

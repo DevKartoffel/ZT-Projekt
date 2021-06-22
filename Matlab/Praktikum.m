@@ -31,29 +31,34 @@ ZRMMetall = calcZRM(mM,Rm, x0, u0);
 % Zustandraummodel erstellen
 ZRM = ZRMMetall;
 
-%% 3.1
-% Plotten der Eigenbewegung
+%% ############  Praktikum 2  ############
+%% 3.1 Simulation der Regelstrecke
+
+% definition der Anfangsauslenkung
 x0 = [0 0 0 0];
+
+% Plotten der Eigenbewegung
 figure(2);
 initial(ZRM, x0);
 xlim([0 10]);
 
-%% 3.2
-% Plotten der Sprungantwort
+% 3.2 Plotten der Sprungantwort
 figure(3);
 step(ZRM);
-%% 4 Analyse
+%% 4 Analyse regelungstechnischer Eigenschaften
 clc;
 n = length(ZRM.A);
 display(['n = ', num2str(n)]);
 
 %% 4.1 Vollständige Steuerbarkeit
 Ss = [ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B];
+
 %detSs = det(Ss);
+% Das System ist vollständig steuerbar, da det(Ss) ~= 0
+
 rankSs = rank(Ss);
 display(['Rang(S_s) = ', num2str(rankSs)]);
-% Das Syste ist vollständig steuerbar, da det(Ss) ~= 0
-% Das Syste ist vollständig steuerbar, da Rang(Ss) = n
+% Das System ist vollständig steuerbar, da Rang(Ss) = n
 
 %% 4.2 Vollständige Beobachtbarkeit
 c0 = [ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B];
@@ -71,7 +76,7 @@ display(['Rang(S_b) = ', num2str(rankSb)]);
 %% 4.3
 eigenA = eig(ZRM.A);
 maxEigen = max(real(eigenA));
-disp(['max{\lambda _{i}} = ', num2str(maxEigen)]);
+disp(['max{',num2str(char(955)) '_i} = ', num2str(maxEigen)]);
 % Das System ist nicht zustandsstabil, da der Realteil des größten Pols in 
 % der rechten Halbebene liegt. Die Eigenwerte sind noch kein Beweis auf
 % E/A-Stabilität.
@@ -108,6 +113,7 @@ cTKnfNormal = ZRM.C * Veig
 
 
 %% 5.2 RNF
+clc;
 qT = [0 0 0 1] * inv([ZRM.B ZRM.A*ZRM.B ZRM.A^2*ZRM.B ZRM.A^3*ZRM.B]);
 TRnf = inv([
         qT;
@@ -124,6 +130,7 @@ GRNF = tf(nenn, zeahl)
 % gerundet wurde.
 
 %% 5.3 BNF
+clc;
 % Über Tansformationsmatrix
 r = inv([
     ZRM.C;
@@ -167,11 +174,13 @@ cTBnfDual = bvBnf
 % dominierende Pole genannt.
 
 %% ## 3. Entwurf Zustandrückführung
+clc;
+% dominierende Pol berechnen eines PT2-Gliedes
 
-%% dominierende Pol berechnen eines PT2-Gliedes
 % Anfoderungen
 deltah = 0.1;
 t5Proz = 1;
+epsilon = 0.05;
 
 % Berechnung Pole der diminierenden Dynamik
 temp = log(deltah)^2/(log(deltah)^2+pi^2);
@@ -186,7 +195,7 @@ eigenWunsch(3,1) = -20;
 eigenWunsch(4,1) = -20;
 
 
-%% k^t über RNF brechnen
+% k^t über RNF brechnen
 
 % Brechung der RNF
 [~, ARnf, Brnf, cTRnf, TRnf] = calcRnf4Ordnung(ZRM.A,ZRM.B,ZRM.C,ZRM.D);
@@ -195,7 +204,7 @@ eigenWunsch(4,1) = -20;
 WunschPoly = poly(eigenWunsch);
 % Die wunschkoeffizienten in einen transformierten Vektor schreiben und von
 % a0 bis an-1 laufen lassen
-aDach = flip(WunschPoly(1,2:end));
+aDach = flip(WunschPoly(1,2:end))
 
 % Letze Zeile der RNF Matrix herausfilter und somit die Koeffizienten des
 % charakteristischen Polynoms der Systemmatrix erhalten
@@ -203,38 +212,65 @@ a = - ARnf(size(ARnf,2),:);
 
 % kTrnf berechnen
 kTRnf = aDach - a;
-kT = kTRnf * inv(TRnf);
+kT = kTRnf * inv(TRnf)
 
-%% k^t über acker
-kTacker = acker(ZRM.A, ZRM.B, [eigenWunsch]);
+% k^t über acker
+kTacker = acker(ZRM.A, ZRM.B, [eigenWunsch])
+
+%% ## 4. Dynamikanforderungen Testen
+
+% Simulink durchführen
+time = 6;
+outP3 = sim('Simulink_ZT_P3', time);
+
+%%
+figure(30);
+plot( outP3.SimuYtRNFFilter.Time, outP3.SimuYtRNFFilter.Data);
+title(['y(t) bei x_{10} = ', num2str(x0(1)), ' und w_{soll}(t) = ', num2str(wsoll)]);
+line([0, time], [wsoll*(1+deltah),wsoll*(1+deltah)], 'color', 'r');
+line([zeitverzoegerung + t5Proz,zeitverzoegerung + t5Proz],...
+    [0,wsoll*1.05], 'color', 'gr');
+line([0, time], [wsoll*(1+epsilon),wsoll*(1+epsilon)], 'color', 'c');
+line([0, time], [wsoll*(1-epsilon),wsoll*(1-epsilon)], 'color', 'c');
+legend('y(t)','\Delta h_{max}','T_{5%}', '\epsilon')
+grid minor;
+
+% Die Überschwingweite wird eingehalten. Die Einschwungzeit wird jedoch
+% nicht ganz eingehalten, da y(T) zum Zeitpunkt t=T5proz oberhalb der 5%
+% leigt.
 
 %% ## 5 Entwurf eines Vorfilters
 
 V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
 VRnf = aDach(1,1) / cTRnf(1,1);
 
-%% ## 4. Dynamikanforderungen Testen
 
-% Durchführen Simulink
-outP3 = sim('Simulink_ZT_P3', 10);
+%% ## 6 Simulation des geschlossenen Regelkreises mit ZRF und Vorfilter
 
- %% Plots
+% Simulink durchführen
+time = 6;
+outP3 = sim('Simulink_ZT_P3', time);
+
+%% Plots
+% Peaks für die Überschwinger bestimmen
 [peakOhneFilter, IOhneFilter] = max(outP3.SimuYtRNFFilter.Data);
 [peakMitFilter, IMitFilter] = max(outP3.SimuYtRNFFilterULimit.Data);
 
 figure()
 hold on;
-title(['y(t) bei x_0 = ', num2str(x0(1)), ' und w_{soll}(t) = ', num2str(wsoll)])
+title(['y(t) bei x_{10} = ', num2str(x0(1)), ' und w_{soll}(t) = ', num2str(wsoll)])
 plot(outP3.SimuYtRNFFilter.Time, outP3.SimuYtRNFFilter.Data)
 plot(outP3.SimuYtRNFFilterULimit.Time, outP3.SimuYtRNFFilterULimit.Data);
-plot(outP3.SimuYtRNFFilter.Time(IOhneFilter), peakOhneFilter, 'x');
-plot(outP3.SimuYtRNFFilterULimit.Time(IMitFilter), peakMitFilter, 'x');
-legend('Ohne Limit','Mit Limit');
+%plot(outP3.SimuYtRNFFilter.Time(IOhneFilter), peakOhneFilter, 'x');
+%plot(outP3.SimuYtRNFFilterULimit.Time(IMitFilter), peakMitFilter, 'x');
+line([0, time], [wsoll*(1+deltah),wsoll*(1+deltah)], 'color', 'r');
+line([zeitverzoegerung + t5Proz,zeitverzoegerung + t5Proz],...
+    [0,wsoll*1.05], 'color', 'gr');
+line([0, time], [wsoll*(1+epsilon),wsoll*(1+epsilon)], 'color', 'c');
+line([0, time], [wsoll*(1-epsilon),wsoll*(1-epsilon)], 'color', 'c');
+legend('Ohne Limit','Mit Limit','\Delta h_{max}','T_{5%}', '\epsilon');
 grid minor;
 hold off;
-
-
-%% Aufgabe 6
 
 % Anfangsauslenkungen
 % x0 = 0.05: deltah (mit Beschränkung) wird kleiner im Vgl. mit dem deltah
@@ -248,11 +284,17 @@ hold off;
 % erreichen
 
 %% ## 7 Störgröße
+% Simulink durchführen
+outP3 = sim('Simulink_ZT_P3', 5);
+
+%%
+
+[peakMitFilter, IMitFilter] = max(outP3.SimuYtRNFFilterULimit.Data);
 
 figure()
 hold on;
-title(['Störfunktion bei x_0 = ', num2str(x0(1))])
-plot(out.SimuYtRNFStoerung.Time, out.SimuYtRNFStoerung.Data)
+title(['Störfunktion bei x_{10} = ', num2str(x0(1)), ' und w_{soll}(t) = ', num2str(wsoll)])
+plot(outP3.SimuYtRNFStoerung.Time, outP3.SimuYtRNFStoerung.Data)
 grid minor;
 hold off;
 
@@ -353,10 +395,6 @@ P4kTschRnf = P4Vk(2:end)';
 % Berechnung kT
 P4kTsch = P4kTschRnf * inv(P4TRnf);
 
-% Starte Simulink
-time = 15;
-outP4 = sim('Simulink_ZT_P4', time);
-
 
 %% 5.3 Gummiball
 
@@ -364,6 +402,8 @@ outP4 = sim('Simulink_ZT_P4', time);
 ZRMGummi = calcZRM(mG,Rg, x0, u0);
 ZRM = ZRMGummi;
 
+%% Durchführen der Simulation
+% Starte Simulink
 time = 15;
 outP4Gummi = sim('Simulink_ZT_P4', time);
 

@@ -24,7 +24,8 @@ x0 = [x10 x20 x30 x40];
 % Eingangsgrößen
 zeitverzoegerung = 1;
 u0 = 0;
-z0 = 0;
+tstoer = 4;
+z0 = 1;
 wsoll = 0.2;
 
 ZRMMetall = calcZRM(mM,Rm, x0, u0);
@@ -217,7 +218,15 @@ kT = kTRnf * inv(TRnf)
 % k^t über acker
 kTacker = acker(ZRM.A, ZRM.B, [eigenWunsch])
 
+
+%% ## 5 Entwurf eines Vorfilters
+
+V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
+VRnf = aDach(1,1) / cTRnf(1,1);
+
+
 %% ## 4. Dynamikanforderungen Testen
+% Muss nach 5. laufen, weil dort der Vorfilter definiert wird
 
 % Simulink durchführen
 time = 6;
@@ -239,11 +248,6 @@ grid minor;
 % nicht ganz eingehalten, da y(T) zum Zeitpunkt t=T5proz oberhalb der 5%
 % leigt.
 
-%% ## 5 Entwurf eines Vorfilters
-
-V = -(ZRM.C*(ZRM.A - ZRM.B * kT)^-1 * ZRM.B)^-1;
-VRnf = aDach(1,1) / cTRnf(1,1);
-
 
 %% ## 6 Simulation des geschlossenen Regelkreises mit ZRF und Vorfilter
 
@@ -254,7 +258,6 @@ outP3 = sim('Simulink_ZT_P3', time);
 %% Plots
 % Peaks für die Überschwinger bestimmen
 [peakOhneFilter, IOhneFilter] = max(outP3.SimuYtRNFFilter.Data);
-[peakMitFilter, IMitFilter] = max(outP3.SimuYtRNFFilterULimit.Data);
 
 figure()
 hold on;
@@ -285,7 +288,7 @@ hold off;
 
 %% ## 7 Störgröße
 % Simulink durchführen
-outP3 = sim('Simulink_ZT_P3', 5);
+outP3 = sim('Simulink_ZT_P3', 10);
 
 %%
 
@@ -300,6 +303,7 @@ hold off;
 
 % Die Störung kann nicht geregelt werden, da sie hinter dem Regler
 % angreift. Es bleibt eine Regelabweichung um die Höhe der Strörung übrig.
+% Bei einer sprunghaften Störung kommt es zu einem Sprung.
 
 
 %% ############  Praktikum 4  ############
